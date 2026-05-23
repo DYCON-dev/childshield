@@ -31,16 +31,22 @@ class ImageCanvas(QLabel):
     BLUR_FILL = QColor(220, 38, 38, 60)
     KEEP_FILL = QColor(34, 197, 94, 50)
 
-    def __init__(self, on_drop: Callable[[str], None]) -> None:
+    def __init__(
+        self,
+        on_drop: Callable[[str], None],
+        on_state_change: Callable[[], None] | None = None,
+    ) -> None:
         super().__init__()
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setObjectName("dropZone")
         self.setMinimumSize(420, 320)
         self.setAcceptDrops(True)
         self.setMouseTracking(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setText("Drag and drop an image here, or click below.")
 
         self._on_drop = on_drop
+        self._on_state_change = on_state_change or (lambda: None)
         self._source: np.ndarray | None = None
         self._faces: list[Face] = []
         self._blur_flags: list[bool] = []
@@ -62,18 +68,27 @@ class ImageCanvas(QLabel):
         self._faces = faces
         self._blur_flags = list(blur_flags)
         self._render()
+        self._on_state_change()
 
     def toggle_face(self, face_idx: int) -> None:
         if 0 <= face_idx < len(self._blur_flags):
             self._blur_flags[face_idx] = not self._blur_flags[face_idx]
             self._render()
+            self._on_state_change()
 
     def set_all(self, blur: bool) -> None:
         self._blur_flags = [blur] * len(self._faces)
         self._render()
+        self._on_state_change()
 
     def get_blur_flags(self) -> list[bool]:
         return list(self._blur_flags)
+
+    def get_blur_count(self) -> int:
+        return sum(self._blur_flags)
+
+    def get_face_count(self) -> int:
+        return len(self._faces)
 
     def get_source(self) -> np.ndarray | None:
         return self._source

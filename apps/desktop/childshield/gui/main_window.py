@@ -40,8 +40,17 @@ class MainWindow(QWidget):
         layout = QVBoxLayout(self)
 
         # Image canvas with face overlays
-        self._canvas = ImageCanvas(on_drop=self._on_drop)
+        self._canvas = ImageCanvas(
+            on_drop=self._on_drop,
+            on_state_change=self._on_canvas_changed,
+        )
         layout.addWidget(self._canvas, stretch=1)
+
+        # Live counter showing blur vs. keep
+        self._counter = QLabel("")
+        self._counter.setObjectName("counter")
+        self._counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._counter)
 
         # Help line
         self._help = QLabel(
@@ -129,6 +138,18 @@ class MainWindow(QWidget):
         self._threshold_label.setText(f"{value}y")
         # We do NOT re-apply automatically here — the user might have manual
         # selections they don't want clobbered. The "Re-apply" button does it explicitly.
+
+    def _on_canvas_changed(self) -> None:
+        """Update the live counter every time the user toggles a face."""
+        total = self._canvas.get_face_count()
+        to_blur = self._canvas.get_blur_count()
+        keep = total - to_blur
+        if total == 0:
+            self._counter.setText("")
+            return
+        self._counter.setText(
+            f"🔴 {to_blur} blurred   •   🟢 {keep} clear   •   {total} total"
+        )
 
     # ------------------------------------------------------ processing
 

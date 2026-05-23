@@ -52,6 +52,15 @@ QLabel#help {
     font-size: 13px;
 }
 
+QLabel#counter {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f2937;
+    padding: 8px;
+    background: #f1f5f9;
+    border-radius: 8px;
+}
+
 QLabel#status {
     color: #555;
     padding: 4px;
