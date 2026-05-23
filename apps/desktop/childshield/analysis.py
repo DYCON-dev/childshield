@@ -20,6 +20,7 @@ import numpy as np
 # CPU-only setups; that's expected and noisy in the GUI status bar.
 warnings.filterwarnings("ignore", category=UserWarning, module="onnxruntime")
 
+from insightface.app.common import Face as _IFace  # noqa: E402
 from insightface.model_zoo import model_zoo  # noqa: E402
 
 _DET_INPUT_SIZE = (640, 640)
@@ -73,26 +74,15 @@ class FaceAnalyzer:
             if w <= 0 or h <= 0:
                 continue
 
-            # The genderage model needs an insightface "Face" object with
-            # bbox + kps; we mimic it with a small ad-hoc wrapper.
-            face_obj = _AgeInput(bbox=bboxes[i][:4], kps=kps[i] if kps is not None else None)
-            self._age.get(image, face_obj)
-            age = int(round(float(face_obj.age)))
+            iface = _IFace(
+                bbox=bboxes[i][:4],
+                kps=kps[i] if kps is not None else None,
+                det_score=float(score),
+            )
+            self._age.get(image, iface)
+            age = int(round(float(iface.age)))
 
             faces.append(
                 Face(x=x, y=y, w=w, h=h, age=age, confidence=float(score))
             )
         return faces
-
-
-class _AgeInput:
-    """Minimal duck-typed Face object that genderage.get() expects."""
-
-    __slots__ = ("bbox", "kps", "age", "gender", "sex")
-
-    def __init__(self, bbox: np.ndarray, kps: np.ndarray | None) -> None:
-        self.bbox = bbox
-        self.kps = kps
-        self.age = 0.0
-        self.gender = 0
-        self.sex = "?"
