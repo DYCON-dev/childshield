@@ -1,4 +1,4 @@
-"""Main window: drag-and-drop or open dialog, processes the image, shows result."""
+"""Main window: drag-and-drop or open dialog, process the image, show result."""
 
 from __future__ import annotations
 
@@ -9,17 +9,20 @@ import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QImage, QPixmap
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
 
+from childshield.age_estimation import AgeEstimator
 from childshield.blur import blur_faces
-from childshield.detection import FaceDetector
+from childshield.detection import Face, FaceDetector
 
 SUPPORTED_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 DROP_HINT = "Drag and drop an image here, or click below."
@@ -32,7 +35,7 @@ class _DropZone(QLabel):
         self.setObjectName("dropZone")
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setText(DROP_HINT)
-        self.setMinimumSize(420, 260)
+        self.setMinimumSize(420, 280)
         self.setAcceptDrops(True)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
@@ -50,9 +53,17 @@ class MainWindow(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("ChildShield")
-        self.setMinimumSize(560, 620)
+        self.setMinimumSize(600, 760)
 
         self._detector = FaceDetector()
+        self._age_estimator = AgeEstimator()
+
+        # Cache the last loaded image + faces so the user can re-blur with
+        # different settings without re-running detection.
+        self._current_image: np.ndarray | None = None
+        self._current_path: Path | None = None
+        self._current_faces: list[Face] = []
+        self._current_ages: list[int] = []
         self._last_output: Path | None = None
 
         layout = QVBoxLayout(self)
@@ -60,6 +71,27 @@ class MainWindow(QWidget):
         self._drop = _DropZone(self)
         layout.addWidget(self._drop)
 
+        # Threshold slider
+        slider_row = QHBoxLayout()
+        slider_row.addWidget(QLabel("Blur if estimated age ≤"))
+        self._threshold_label = QLabel("12")
+        self._threshold_label.setObjectName("thresholdValue")
+        self._threshold_label.setMinimumWidth(30)
+        self._threshold = QSlider(Qt.Orientation.Horizontal)
+        self._threshold.setMinimum(0)
+        self._threshold.setMaximum(30)
+        self._threshold.setValue(12)
+        self._threshold.valueChanged.connect(self._on_threshold_changed)
+        slider_row.addWidget(self._threshold)
+        slider_row.addWidget(self._threshold_label)
+        layout.addLayout(slider_row)
+
+        # "Blur all" override
+        self._blur_all = QCheckBox("Blur all detected faces (override)")
+        self._blur_all.toggled.connect(self._reprocess_current)
+        layout.addWidget(self._blur_all)
+
+        # Action buttons
         btn_row = QHBoxLayout()
         self._open_btn = QPushButton("Open image…")
         self._open_btn.clicked.connect(self._open_dialog)
@@ -73,6 +105,7 @@ class MainWindow(QWidget):
 
         self._status = QLabel("Ready.")
         self._status.setObjectName("status")
+        self._status.setWordWrap(True)
         layout.addWidget(self._status)
 
     # ------------------------------------------------------------------ slots
@@ -87,11 +120,14 @@ class MainWindow(QWidget):
     def _reveal_output(self) -> None:
         if self._last_output is None or not self._last_output.exists():
             return
-        # cross-platform "show in folder" via QDesktopServices on the directory
         from PyQt6.QtCore import QUrl
         from PyQt6.QtGui import QDesktopServices
 
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._last_output.parent)))
+
+    def _on_threshold_changed(self, value: int) -> None:
+        self._threshold_label.setText(str(value))
+        self._reprocess_current()
 
     # ----------------------------------------------------------- processing
 
@@ -105,13 +141,43 @@ class MainWindow(QWidget):
             self._error(f"Could not read image: {path.name}")
             return
 
-        self._status.setText(f"Processing {path.name}…")
+        self._status.setText(f"Detecting faces in {path.name}…")
         self.repaint()
 
         faces = self._detector.detect(image)
-        blurred = blur_faces(image, faces)
+        ages = self._age_estimator.estimate_many(image, faces)
 
-        out_path = path.with_name(f"blurred_{path.name}")
+        self._current_image = image
+        self._current_path = path
+        self._current_faces = faces
+        self._current_ages = ages
+
+        self._save_and_display()
+
+    def _reprocess_current(self) -> None:
+        if self._current_image is not None:
+            self._save_and_display()
+
+    def _save_and_display(self) -> None:
+        assert self._current_image is not None
+        assert self._current_path is not None
+
+        threshold = self._threshold.value()
+        blur_all = self._blur_all.isChecked()
+
+        # Decide which faces to blur
+        if blur_all:
+            faces_to_blur = self._current_faces
+        else:
+            faces_to_blur = [
+                f
+                for f, age in zip(self._current_faces, self._current_ages)
+                if age <= threshold
+            ]
+
+        blurred = blur_faces(self._current_image, faces_to_blur)
+
+        out_path = self._current_path.with_name(f"blurred_{self._current_path.name}")
         if not cv2.imwrite(str(out_path), blurred):
             self._error(f"Could not save: {out_path}")
             return
@@ -119,9 +185,18 @@ class MainWindow(QWidget):
         self._last_output = out_path
         self._reveal_btn.setEnabled(True)
         self._display(blurred)
-        self._status.setText(
-            f"{len(faces)} face(s) blurred. Saved as {out_path.name}"
-        )
+
+        total = len(self._current_faces)
+        blurred_count = len(faces_to_blur)
+        if total == 0:
+            msg = "No faces detected."
+        else:
+            age_summary = ", ".join(f"~{a}y" for a in self._current_ages)
+            msg = (
+                f"{total} face(s) detected ({age_summary}). "
+                f"Blurred {blurred_count}. Saved as {out_path.name}"
+            )
+        self._status.setText(msg)
 
     def _display(self, image_bgr: np.ndarray) -> None:
         rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
