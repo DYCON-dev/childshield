@@ -30,6 +30,28 @@ QPushButton:disabled {
     background: #c0c4cc;
 }
 
+QPushButton#secondary {
+    background: #ffffff;
+    color: #2563eb;
+    border: 1px solid #c7d2fe;
+}
+
+QPushButton#secondary:hover {
+    background: #eff6ff;
+}
+
+QPushButton#secondary:disabled {
+    color: #94a3b8;
+    border-color: #e2e8f0;
+    background: #f8fafc;
+}
+
+QLabel#help {
+    color: #555;
+    padding: 4px 0;
+    font-size: 13px;
+}
+
 QLabel#status {
     color: #555;
     padding: 4px;

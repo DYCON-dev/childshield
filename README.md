@@ -19,7 +19,7 @@ Children appear in photos every day on Instagram, WhatsApp groups, school newsle
 
 | App | Status | Platform |
 |-----|--------|----------|
-| [Desktop app](apps/desktop) | 🟢 V1.7 — SCRFD detection + InsightFace age estimation | macOS, Linux, Windows |
+| [Desktop app](apps/desktop) | 🟢 V1.8 — clickable per-face blur override | macOS, Linux, Windows |
 | [Browser extension](apps/extension) | 🔴 Planned | Chrome, Firefox, Safari |
 | [Safari wrapper](apps/safari) | 🔴 Planned | macOS Safari |
 
@@ -43,8 +43,8 @@ The desktop app and the browser extension share the same brand and goal but are 
 
 - ✅ **V1**: Desktop app — drag a photo, conservative "blur all" mode
 - ✅ **V1.5**: Age estimation — blurs faces below a configurable age threshold (default ≤ 12)
-- ✅ **V1.7** (current): Switched to **InsightFace** — SCRFD face detector (~16 MB) + genderage regressor (~1.3 MB), both bundled. Accuracy: detection F1 ~99%, age estimation ±5 years.
-- **V1.8**: Click any face to manually toggle blur on/off (per-face override)
+- ✅ **V1.7**: Switched to **InsightFace** — SCRFD face detector + genderage regressor, both bundled (~17 MB)
+- ✅ **V1.8** (current): Click any face to manually toggle blur on/off. The AI pre-selects based on age estimation, you make the final call.
 - **V2**: Browser extension (Chrome, Firefox, Safari)
 - **V3**: Video support, batch mode, CLI
 
