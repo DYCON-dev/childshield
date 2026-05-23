@@ -13,6 +13,12 @@
 
 [Download](#download) · [How it works](#how-it-works) · [Limitations](#limitations-honest-disclosure) · [Contribute](#contributing) · [🇫🇷 Français](#-français)
 
+<br />
+
+<img src="assets/screenshot.png" width="900" alt="ChildShield desktop app — detected faces with age estimation and per-face blur override">
+
+<sub>The app detects every face, estimates an age bucket, pre-selects anyone potentially under 18 for blur (red), and lets you flip any decision with one click.</sub>
+
 </div>
 
 ---
@@ -45,6 +51,19 @@ The desktop app and the browser extension share the same models — two ONNX fil
 6. **Save blurred copy** writes `blurred_<filename>` next to the original
 
 The blur is an elliptical region with a smoothstep alpha falloff, so the dissolve into the surrounding photo is soft and round rather than a hard rectangle.
+
+### Example
+
+<table>
+  <tr>
+    <th width="50%">Before</th>
+    <th width="50%">After</th>
+  </tr>
+  <tr>
+    <td><img src="assets/example-before.jpg" alt="Original family photo"></td>
+    <td><img src="assets/example-after.jpg" alt="Same photo with all minors' faces blurred"></td>
+  </tr>
+</table>
 
 ### Privacy guarantees
 
