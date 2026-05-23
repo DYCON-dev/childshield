@@ -19,7 +19,7 @@ Children appear in photos every day on Instagram, WhatsApp groups, school newsle
 
 | App | Status | Platform |
 |-----|--------|----------|
-| [Desktop app](apps/desktop) | 🟢 V1.8 — clickable per-face blur override | macOS, Linux, Windows |
+| [Desktop app](apps/desktop) | 🟢 V2 — ViT-FairFace age + clickable per-face blur | macOS, Linux, Windows |
 | [Browser extension](apps/extension) | 🔴 Planned | Chrome, Firefox, Safari |
 | [Safari wrapper](apps/safari) | 🔴 Planned | macOS Safari |
 
@@ -43,10 +43,11 @@ The desktop app and the browser extension share the same brand and goal but are 
 
 - ✅ **V1**: Desktop app — drag a photo, conservative "blur all" mode
 - ✅ **V1.5**: Age estimation — blurs faces below a configurable age threshold (default ≤ 12)
-- ✅ **V1.7**: Switched to **InsightFace** — SCRFD face detector + genderage regressor, both bundled (~17 MB)
-- ✅ **V1.8** (current): Click any face to manually toggle blur on/off. The AI pre-selects based on age estimation, you make the final call.
-- **V2**: Browser extension (Chrome, Firefox, Safari)
-- **V3**: Video support, batch mode, CLI
+- ✅ **V1.7**: Switched to **InsightFace** — SCRFD face detector + genderage regressor, both bundled
+- ✅ **V1.8**: Click any face to manually toggle blur on/off. The AI pre-selects, you make the final call.
+- ✅ **V2** (current): Switched age model from InsightFace `genderage` to **ViT-FairFace** (`nateraw/vit-age-classifier`, int8-quantized, ~85 MB) — much less child-overestimation bias because FairFace is demographically balanced.
+- **V3**: Browser extension (Chrome, Firefox, Safari) — sharing the same ONNX models via `onnxruntime-web`
+- **V4**: Video support, batch mode, CLI
 
 ### License
 
@@ -54,8 +55,9 @@ The desktop app and the browser extension share the same brand and goal but are 
 
 ### Acknowledgements
 
-- [InsightFace](https://github.com/deepinsight/insightface) — SCRFD detector + age/gender regressor (MIT)
-- [face-api.js](https://github.com/justadudewhohacks/face-api.js) (planned V2 extension, MIT)
+- [InsightFace](https://github.com/deepinsight/insightface) — SCRFD face detector (MIT)
+- [`nateraw/vit-age-classifier`](https://huggingface.co/nateraw/vit-age-classifier) — Vision Transformer fine-tuned on the FairFace dataset for the age head (MIT)
+- [FairFace](https://github.com/joojs/fairface) — demographically balanced face attribute dataset by Karkkainen & Joo (2021)
 - [OpenCV](https://opencv.org), [PyQt6](https://pypi.org/project/PyQt6/), [ONNX Runtime](https://onnxruntime.ai/)
 
 ---

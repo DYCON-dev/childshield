@@ -172,16 +172,18 @@ class MainWindow(QWidget):
         self._save_btn.setEnabled(True)
 
         threshold = self._threshold.value()
-        flags = [f.age <= threshold for f in faces]
+        flags = [f.age_min <= threshold for f in faces]
         self._canvas.set_image(image, faces, flags)
 
         if not faces:
             self._status.setText(f"No faces detected in {path.name}.")
         else:
-            age_summary = ", ".join(f"~{f.age}y" for f in faces)
+            age_summary = ", ".join(
+                f"{f.age_label}y ({int(f.age_confidence * 100)}%)" for f in faces
+            )
             to_blur = sum(flags)
             self._status.setText(
-                f"{len(faces)} face(s) detected ({age_summary}). "
+                f"{len(faces)} face(s) detected: {age_summary}. "
                 f"Auto-selected {to_blur} for blur. Click any face to override."
             )
 
@@ -189,7 +191,7 @@ class MainWindow(QWidget):
         if not self._current_faces:
             return
         threshold = self._threshold.value()
-        flags = [f.age <= threshold for f in self._current_faces]
+        flags = [f.age_min <= threshold for f in self._current_faces]
         self._canvas.set_image(self._canvas.get_source(), self._current_faces, flags)
 
     def _save(self) -> None:

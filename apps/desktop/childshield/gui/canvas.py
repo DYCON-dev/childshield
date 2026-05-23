@@ -177,8 +177,8 @@ class ImageCanvas(QLabel):
             painter.setPen(pen)
             painter.drawRect(QRect(x, y, box_w, box_h))
 
-            # Age label
-            label = f"~{face.age}y"
+            # Age range label
+            label = f"{face.age_label}y"
             label_w = painter.fontMetrics().horizontalAdvance(label) + 12
             label_h = painter.fontMetrics().height() + 4
             label_rect = QRect(x, max(0, y - label_h - 2), label_w, label_h)
