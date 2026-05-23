@@ -83,8 +83,32 @@ hdiutil create -volname ChildShield \
 ```
 
 Final bundle is ~350 MB (PyQt6 + OpenCV + ONNX Runtime + the two ONNX
-models). To distribute to users outside the App Store, you need to sign
-and notarize the `.app` with your Apple Developer ID.
+models).
+
+### Sign + notarize for distribution outside the App Store
+
+The `.app` produced by PyInstaller is unsigned — macOS Gatekeeper will
+refuse to open it. To distribute publicly, sign and notarize it with
+your Apple Developer ID:
+
+```bash
+export APPLE_DEVELOPER_ID="Developer ID Application: Your Name (TEAMID12345)"
+export APPLE_ID="you@example.com"
+export APPLE_PASSWORD="app-specific-password"   # from https://appleid.apple.com
+export APPLE_TEAM_ID="TEAMID12345"
+
+bash tools/sign_macos.sh
+```
+
+The script wraps `codesign`, submits the bundle to `xcrun notarytool`,
+waits for the notarization ticket, staples it, and rebuilds the `.dmg`.
+Plan ~5 minutes for the notarization round-trip.
+
+To do the same from GitHub Actions, add these repository secrets:
+- `APPLE_CERTIFICATE_BASE64` — your Developer ID .p12 file, base64-encoded
+- `APPLE_CERTIFICATE_PASSWORD` — the .p12 password
+- `KEYCHAIN_PASSWORD` — any string the runner uses for the temporary keychain
+- `APPLE_DEVELOPER_ID`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` — same as above
 
 ### Windows / Linux
 

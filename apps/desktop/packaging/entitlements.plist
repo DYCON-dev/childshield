@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- The Python interpreter and ONNX Runtime both JIT-compile native
+         code; we enable the hardened-runtime exemptions needed for that. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!-- ChildShield does NOT touch the network, camera, mic, or any
+         user data outside the file the user explicitly drops in. We
+         leave all hardware/network entitlements off. -->
+</dict>
+</plist>

@@ -51,14 +51,43 @@ jobs:
       - name: Build with PyInstaller
         run: pyinstaller --clean ChildShield.spec
 
-      - name: Package macOS .dmg
-        if: runner.os == 'macOS'
+      - name: Import macOS signing certificate
+        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          hdiutil create -volname ChildShield \
-            -srcfolder dist/ChildShield.app \
-            -ov -format UDZO -fs HFS+ \
-            dist/ChildShield-${GITHUB_REF_NAME#v}.dmg
-          # Stable name for the release uploader
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > $RUNNER_TEMP/cert.p12
+          security import $RUNNER_TEMP/cert.p12 -k "$KEYCHAIN_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          rm $RUNNER_TEMP/cert.p12
+
+      - name: Sign, notarize & package macOS .dmg
+        if: runner.os == 'macOS'
+        env:
+          APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          if [[ -n "$APPLE_DEVELOPER_ID" ]]; then
+            VERSION=${VERSION#v} bash tools/sign_macos.sh
+          else
+            # Unsigned fallback so the workflow still produces a build
+            hdiutil create -volname ChildShield \
+              -srcfolder dist/ChildShield.app \
+              -ov -format UDZO -fs HFS+ \
+              dist/ChildShield-${GITHUB_REF_NAME#v}.dmg
+          fi
           cp dist/ChildShield-*.dmg dist/ChildShield-macOS.dmg
 
       - name: Package Windows .zip
