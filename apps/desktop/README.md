@@ -56,6 +56,44 @@ apps/desktop/
 └── README.md
 ```
 
+## Build a standalone bundle
+
+The desktop app ships as a `.app` (macOS), `.exe` folder (Windows), or
+`AppImage` (Linux). All three are built from the same
+[`ChildShield.spec`](ChildShield.spec) PyInstaller file.
+
+### macOS (.app + .dmg)
+
+```bash
+cd apps/desktop
+python -m venv .venv && source .venv/bin/activate
+pip install -e . pyinstaller pillow
+
+# Render the icon bundles from logo.svg
+python tools/build_icons.py
+
+# Build the .app
+pyinstaller --clean ChildShield.spec
+
+# Package as .dmg
+hdiutil create -volname ChildShield \
+  -srcfolder dist/ChildShield.app \
+  -ov -format UDZO -fs HFS+ \
+  dist/ChildShield-0.1.0.dmg
+```
+
+Final bundle is ~350 MB (PyQt6 + OpenCV + ONNX Runtime + the two ONNX
+models). To distribute to users outside the App Store, you need to sign
+and notarize the `.app` with your Apple Developer ID.
+
+### Windows / Linux
+
+The same `ChildShield.spec` works on Windows (produces `dist/ChildShield/`
+with `ChildShield.exe`) and Linux (`dist/ChildShield/ChildShield`). PyInstaller
+does not cross-compile — run each build on the matching OS, or use the
+GitHub Actions workflow in [`.github/workflows/release.yml`](../../.github/workflows/release.yml)
+which builds all three on tag push.
+
 ## License
 
 [MIT](../../LICENSE)

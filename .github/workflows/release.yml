@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write  # to create the Release and upload assets
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact: ChildShield-macOS.dmg
+            asset_glob: "apps/desktop/dist/ChildShield-*.dmg"
+          - os: windows-latest
+            artifact: ChildShield-Windows.zip
+            asset_glob: "apps/desktop/dist/ChildShield-windows.zip"
+          - os: ubuntu-latest
+            artifact: ChildShield-Linux.tar.gz
+            asset_glob: "apps/desktop/dist/ChildShield-linux.tar.gz"
+
+    defaults:
+      run:
+        working-directory: apps/desktop
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller pillow
+
+      - name: Build icons (Linux needs only the .png)
+        run: python tools/build_icons.py
+
+      - name: Build with PyInstaller
+        run: pyinstaller --clean ChildShield.spec
+
+      - name: Package macOS .dmg
+        if: runner.os == 'macOS'
+        run: |
+          hdiutil create -volname ChildShield \
+            -srcfolder dist/ChildShield.app \
+            -ov -format UDZO -fs HFS+ \
+            dist/ChildShield-${GITHUB_REF_NAME#v}.dmg
+          # Stable name for the release uploader
+          cp dist/ChildShield-*.dmg dist/ChildShield-macOS.dmg
+
+      - name: Package Windows .zip
+        if: runner.os == 'Windows'
+        run: |
+          cd dist
+          7z a -tzip ChildShield-windows.zip ChildShield
+
+      - name: Package Linux tarball
+        if: runner.os == 'Linux'
+        run: |
+          cd dist
+          tar -czf ChildShield-linux.tar.gz ChildShield
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.asset_glob }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: List artifacts
+        run: ls -lhR dist
+
+      - name: Create / update Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/**/ChildShield-*.dmg
+            dist/**/ChildShield-windows.zip
+            dist/**/ChildShield-linux.tar.gz
