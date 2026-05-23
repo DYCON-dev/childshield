@@ -19,7 +19,7 @@ Children appear in photos every day on Instagram, WhatsApp groups, school newsle
 
 | App | Status | Platform |
 |-----|--------|----------|
-| [Desktop app](apps/desktop) | 🟢 V1.5 — face detection + age estimation | macOS, Linux, Windows |
+| [Desktop app](apps/desktop) | 🟢 V1.7 — SCRFD detection + InsightFace age estimation | macOS, Linux, Windows |
 | [Browser extension](apps/extension) | 🔴 Planned | Chrome, Firefox, Safari |
 | [Safari wrapper](apps/safari) | 🔴 Planned | macOS Safari |
 
@@ -42,9 +42,9 @@ The desktop app and the browser extension share the same brand and goal but are 
 ### Roadmap
 
 - ✅ **V1**: Desktop app — drag a photo, conservative "blur all" mode
-- ✅ **V1.5** (current): Age estimation — blurs only faces estimated below a configurable age (default ≤ 12). Toggle "blur all" still available as override.
-- **V1.6**: Click any face to manually toggle blur on/off (per-face override)
-- **V1.7**: Switch age model from Caffe (2015) to MiVOLO (2024) for better accuracy and reduced bias
+- ✅ **V1.5**: Age estimation — blurs faces below a configurable age threshold (default ≤ 12)
+- ✅ **V1.7** (current): Switched to **InsightFace** — SCRFD face detector (~16 MB) + genderage regressor (~1.3 MB), both bundled. Accuracy: detection F1 ~99%, age estimation ±5 years.
+- **V1.8**: Click any face to manually toggle blur on/off (per-face override)
 - **V2**: Browser extension (Chrome, Firefox, Safari)
 - **V3**: Video support, batch mode, CLI
 
@@ -54,10 +54,9 @@ The desktop app and the browser extension share the same brand and goal but are 
 
 ### Acknowledgements
 
-- [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) face detector (OpenCV Zoo, MIT)
-- Age estimation model by Gil Levi & Tal Hassner — *Age and Gender Classification using Convolutional Neural Networks*, CVPR 2015 — [project page](https://talhassner.github.io/home/publication/2015_CVPR)
+- [InsightFace](https://github.com/deepinsight/insightface) — SCRFD detector + age/gender regressor (MIT)
 - [face-api.js](https://github.com/justadudewhohacks/face-api.js) (planned V2 extension, MIT)
-- [OpenCV](https://opencv.org), [PyQt6](https://pypi.org/project/PyQt6/)
+- [OpenCV](https://opencv.org), [PyQt6](https://pypi.org/project/PyQt6/), [ONNX Runtime](https://onnxruntime.ai/)
 
 ---
 

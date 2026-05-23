@@ -27,6 +27,8 @@ dependencies = [
     "opencv-python>=4.8.0",
     "PyQt6>=6.6.0",
     "numpy>=1.24.0",
+    "insightface>=0.7.3",
+    "onnxruntime>=1.16.0",
 ]
 
 [project.urls]
@@ -43,4 +45,4 @@ include-package-data = true
 include = ["childshield*"]
 
 [tool.setuptools.package-data]
-childshield = ["models/*.onnx", "models/*.caffemodel", "models/*.prototxt", "gui/*.qss"]
+childshield = ["models/*.onnx", "gui/*.qss"]

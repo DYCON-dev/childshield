@@ -5,7 +5,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from childshield.detection import Face
+from childshield.analysis import Face
 
 
 def _odd(n: int, minimum: int = 3) -> int:

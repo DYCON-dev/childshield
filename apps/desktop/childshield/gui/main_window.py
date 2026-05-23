@@ -20,9 +20,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from childshield.age_estimation import AgeEstimator
+from childshield.analysis import Face, FaceAnalyzer
 from childshield.blur import blur_faces
-from childshield.detection import Face, FaceDetector
 
 SUPPORTED_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 DROP_HINT = "Drag and drop an image here, or click below."
@@ -55,15 +54,13 @@ class MainWindow(QWidget):
         self.setWindowTitle("ChildShield")
         self.setMinimumSize(600, 760)
 
-        self._detector = FaceDetector()
-        self._age_estimator = AgeEstimator()
+        self._analyzer = FaceAnalyzer()
 
         # Cache the last loaded image + faces so the user can re-blur with
         # different settings without re-running detection.
         self._current_image: np.ndarray | None = None
         self._current_path: Path | None = None
         self._current_faces: list[Face] = []
-        self._current_ages: list[int] = []
         self._last_output: Path | None = None
 
         layout = QVBoxLayout(self)
@@ -141,16 +138,14 @@ class MainWindow(QWidget):
             self._error(f"Could not read image: {path.name}")
             return
 
-        self._status.setText(f"Detecting faces in {path.name}…")
+        self._status.setText(f"Analyzing {path.name}…")
         self.repaint()
 
-        faces = self._detector.detect(image)
-        ages = self._age_estimator.estimate_many(image, faces)
+        faces = self._analyzer.analyze(image)
 
         self._current_image = image
         self._current_path = path
         self._current_faces = faces
-        self._current_ages = ages
 
         self._save_and_display()
 
@@ -165,15 +160,10 @@ class MainWindow(QWidget):
         threshold = self._threshold.value()
         blur_all = self._blur_all.isChecked()
 
-        # Decide which faces to blur
         if blur_all:
             faces_to_blur = self._current_faces
         else:
-            faces_to_blur = [
-                f
-                for f, age in zip(self._current_faces, self._current_ages)
-                if age <= threshold
-            ]
+            faces_to_blur = [f for f in self._current_faces if f.age <= threshold]
 
         blurred = blur_faces(self._current_image, faces_to_blur)
 
@@ -191,7 +181,7 @@ class MainWindow(QWidget):
         if total == 0:
             msg = "No faces detected."
         else:
-            age_summary = ", ".join(f"~{a}y" for a in self._current_ages)
+            age_summary = ", ".join(f"~{f.age}y" for f in self._current_faces)
             msg = (
                 f"{total} face(s) detected ({age_summary}). "
                 f"Blurred {blurred_count}. Saved as {out_path.name}"
