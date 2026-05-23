@@ -1,9 +1,19 @@
+<div align="center">
+
+<img src="assets/logo.svg" width="120" alt="ChildShield logo">
+
 # ChildShield
 
-> Privacy-first face blurring to protect children's faces before you share a photo online.
-> 100% local. No cloud. No tracking.
+**Privacy-first face blurring to protect children's faces before you share a photo online.**
+**100 % local. No cloud. No tracking.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)](#download)
+[![Made with PyQt6](https://img.shields.io/badge/built%20with-PyQt6-41cd52)](https://riverbankcomputing.com/software/pyqt/)
+
+[Download](#download) · [How it works](#how-it-works) · [Limitations](#limitations-honest-disclosure) · [Contribute](#contributing) · [🇫🇷 Français](#-français)
+
+</div>
 
 ---
 
@@ -19,35 +29,72 @@ Children appear in photos every day on Instagram, WhatsApp groups, school newsle
 
 | App | Status | Platform |
 |-----|--------|----------|
-| [Desktop app](apps/desktop) | 🟢 V2 — ViT-FairFace age + clickable per-face blur | macOS, Linux, Windows |
-| [Browser extension](apps/extension) | 🔴 Planned | Chrome, Firefox, Safari |
+| [Desktop app](apps/desktop) | 🟢 **v0.1.0** released | macOS, Windows, Linux |
+| [Browser extension](apps/extension) | 🔴 Planned (next milestone) | Chrome, Firefox, Safari |
 | [Safari wrapper](apps/safari) | 🔴 Planned | macOS Safari |
 
-The desktop app and the browser extension share the same brand and goal but are intentionally separate implementations (Python + OpenCV for desktop, JavaScript + face-api.js for browser).
+The desktop app and the browser extension share the same models — two ONNX files run identically in Python (`onnxruntime`) and in the browser (`onnxruntime-web` / WASM).
+
+### How it works
+
+1. Drag a photo into the window (or click "Open image")
+2. **InsightFace SCRFD-10G** detects every face (~16 MB ONNX, bundled)
+3. **ViT-FairFace** age classifier predicts an age bucket per face (~85 MB ONNX, bundled)
+4. Faces whose bucket may include a minor (0-2, 3-9, 10-19) are pre-flagged for blur
+5. **Click any face** — or its row in the side panel — to flip its blur state
+6. **Save blurred copy** writes `blurred_<filename>` next to the original
+
+The blur is an elliptical region with a smoothstep alpha falloff, so the dissolve into the surrounding photo is soft and round rather than a hard rectangle.
 
 ### Privacy guarantees
 
-- ✅ Runs entirely on your device
-- ✅ Models bundled inside the app (no download at runtime)
+- ✅ Runs entirely on your device — no internet connection required
+- ✅ Models are bundled inside the app (no download at runtime)
 - ✅ No analytics, no crash reporting, no telemetry
 - ✅ No file is ever sent to a server
-- ✅ Source code is open and auditable
+- ✅ Source code and model weights are open and auditable
 
 ### Limitations (honest disclosure)
 
-- Face detection models miss tilted, profile, or partially occluded faces
-- Age estimation models (planned for V1.5) are known to be **biased**: less accurate on darker skin tones and on Asian features. We default to a **conservative mode** (blur all detected faces; user manually unblurs the ones they want to keep visible) for this reason.
-- This is a tool, not a guarantee — always review the output before sharing.
+- The face detector misses tilted, profile, or partially occluded faces.
+- The age model groups faces into nine coarse buckets (`0-2`, `3-9`, `10-19`, `20-29` …). It is more reliable than a continuous age regressor for our "minor vs. adult" decision but still wrong sometimes — that is exactly why **every face can be toggled manually**.
+- Age estimation models in general have measurable demographic biases. We chose **ViT-FairFace** specifically because [FairFace](https://github.com/joojs/fairface) was assembled to be demographically balanced, but biases are not gone, only reduced.
+- **This is a tool, not a guarantee — always review the output before sharing.**
+
+### Download
+
+Pre-built binaries for macOS, Windows, and Linux are produced from the
+[release workflow](.github/workflows/release.yml) and attached to each
+GitHub Release: **<https://github.com/DYCON-dev/childshield/releases>**.
+
+The binaries are **unsigned** in v0.1.0. On macOS you may need to
+right-click → *Open* → *Open* the first time, or allow it in
+*System Settings → Privacy & Security*. Same idea on Windows
+(SmartScreen).
+
+#### Run from source
+
+```bash
+git clone https://github.com/DYCON-dev/childshield.git
+cd childshield/apps/desktop
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
+childshield
+```
+
+Requires Python 3.9+.
 
 ### Roadmap
 
-- ✅ **V1**: Desktop app — drag a photo, conservative "blur all" mode
-- ✅ **V1.5**: Age estimation — blurs faces below a configurable age threshold (default ≤ 12)
-- ✅ **V1.7**: Switched to **InsightFace** — SCRFD face detector + genderage regressor, both bundled
-- ✅ **V1.8**: Click any face to manually toggle blur on/off. The AI pre-selects, you make the final call.
-- ✅ **V2** (current): Switched age model from InsightFace `genderage` to **ViT-FairFace** (`nateraw/vit-age-classifier`, int8-quantized, ~85 MB) — much less child-overestimation bias because FairFace is demographically balanced.
-- **V3**: Browser extension (Chrome, Firefox, Safari) — sharing the same ONNX models via `onnxruntime-web`
-- **V4**: Video support, batch mode, CLI
+- ✅ **v0.1.0** — Desktop app with SCRFD detection, ViT-FairFace age classification, clickable per-face override, soft elliptical blur
+- 🔜 **v0.2** — Browser extension (Chrome, Firefox, Safari) sharing the same ONNX models via `onnxruntime-web`
+- 🔜 **v0.3** — Video support, batch mode, CLI
+
+### Contributing
+
+Issues and pull requests welcome. This is an OSS project — no contributor agreement, no maintainers council, just normal GitHub workflow.
+
+If you want to swap a model (the project is intentionally model-agnostic via ONNX), the place to start is [`apps/desktop/childshield/analysis.py`](apps/desktop/childshield/analysis.py) and [`apps/desktop/tools/convert_age_model.py`](apps/desktop/tools/convert_age_model.py).
 
 ### License
 
@@ -56,9 +103,9 @@ The desktop app and the browser extension share the same brand and goal but are 
 ### Acknowledgements
 
 - [InsightFace](https://github.com/deepinsight/insightface) — SCRFD face detector (MIT)
-- [`nateraw/vit-age-classifier`](https://huggingface.co/nateraw/vit-age-classifier) — Vision Transformer fine-tuned on the FairFace dataset for the age head (MIT)
+- [`nateraw/vit-age-classifier`](https://huggingface.co/nateraw/vit-age-classifier) — Vision Transformer fine-tuned on the FairFace dataset (MIT)
 - [FairFace](https://github.com/joojs/fairface) — demographically balanced face attribute dataset by Karkkainen & Joo (2021)
-- [OpenCV](https://opencv.org), [PyQt6](https://pypi.org/project/PyQt6/), [ONNX Runtime](https://onnxruntime.ai/)
+- [OpenCV](https://opencv.org), [PyQt6](https://riverbankcomputing.com/software/pyqt/), [ONNX Runtime](https://onnxruntime.ai/), [PyInstaller](https://pyinstaller.org/)
 
 ---
 
@@ -74,30 +121,46 @@ Des enfants apparaissent quotidiennement dans des photos publiées sur Instagram
 
 | Application | Statut | Plateforme |
 |-------------|--------|------------|
-| [Application bureau](apps/desktop) | 🟡 V1 en cours | macOS, Linux, Windows |
-| [Extension navigateur](apps/extension) | 🔴 Prévu | Chrome, Firefox, Safari |
+| [Application bureau](apps/desktop) | 🟢 **v0.1.0** disponible | macOS, Windows, Linux |
+| [Extension navigateur](apps/extension) | 🔴 Prévu (jalon suivant) | Chrome, Firefox, Safari |
 | [Wrapper Safari](apps/safari) | 🔴 Prévu | macOS Safari |
+
+### Comment ça marche
+
+1. Glissez une photo dans la fenêtre (ou cliquez sur « Open image »)
+2. **InsightFace SCRFD-10G** détecte chaque visage (~16 Mo d'ONNX embarqués)
+3. **ViT-FairFace** classifie l'âge par tranches (~85 Mo d'ONNX embarqués)
+4. Les visages dont la tranche d'âge pourrait inclure un mineur (0-2, 3-9, 10-19) sont pré-sélectionnés pour flou
+5. **Cliquez sur un visage** ou sur sa ligne dans le panneau de droite pour basculer son état
+6. **Save blurred copy** enregistre `blurred_<nom>` à côté de l'original
 
 ### Garanties de confidentialité
 
-- ✅ Tout s'exécute sur votre appareil
+- ✅ Tout s'exécute sur votre appareil — aucune connexion requise
 - ✅ Les modèles sont embarqués (pas de téléchargement à l'exécution)
 - ✅ Aucune analytique, aucun rapport de crash, aucun pistage
 - ✅ Aucun fichier n'est envoyé à un serveur
-- ✅ Code source ouvert et auditable
+- ✅ Code source et poids des modèles ouverts et auditables
 
 ### Limitations (transparence)
 
-- Les modèles de détection ratent les visages très inclinés, de profil, ou partiellement cachés
-- Les modèles d'estimation d'âge (prévus en V1.5) ont des **biais documentés** : moins précis sur les peaux foncées et les traits asiatiques. Par défaut, ChildShield est en **mode conservateur** (floute tous les visages détectés ; l'utilisateur dé-floute manuellement ceux qu'il veut laisser visibles).
-- C'est un outil, pas une garantie — vérifiez toujours le résultat avant de partager.
+- Le détecteur rate les visages très inclinés, de profil, ou partiellement cachés.
+- Le modèle d'âge classe en 9 tranches (`0-2`, `3-9`, `10-19`, `20-29` …). C'est plus fiable qu'une estimation continue pour la décision « mineur vs adulte » mais ce n'est pas infaillible — c'est précisément pour ça que **chaque visage peut être basculé manuellement**.
+- Tout modèle d'estimation d'âge a des biais démographiques mesurables. Nous avons choisi **ViT-FairFace** parce que [FairFace](https://github.com/joojs/fairface) a été construit pour être démographiquement équilibré, mais les biais ne disparaissent pas, ils diminuent.
+- **C'est un outil, pas une garantie — vérifiez toujours le résultat avant de partager.**
+
+### Téléchargement
+
+Les binaires précompilés (macOS / Windows / Linux) sont attachés à chaque
+release GitHub : **<https://github.com/DYCON-dev/childshield/releases>**.
+
+Ils sont **non signés** en v0.1.0. Sur macOS, premier lancement : clic-droit → *Ouvrir* → *Ouvrir*, ou autorisez dans *Réglages Système → Confidentialité et sécurité*. Idem côté Windows (SmartScreen).
 
 ### Feuille de route
 
-- **V1** (en cours) : application bureau — glisser une photo, tous les visages détectés sont floutés, copie sauvegardée
-- **V1.5** : assistance par estimation d'âge (« ChildShield pense que ces 2 visages sont jeunes ») + clic pour basculer le flou par visage
-- **V2** : extension navigateur (Chrome, Firefox, Safari)
-- **V3** : vidéo, mode lot, ligne de commande
+- ✅ **v0.1.0** — App bureau avec détection SCRFD, classification d'âge ViT-FairFace, clic par visage, flou elliptique doux
+- 🔜 **v0.2** — Extension navigateur (Chrome, Firefox, Safari) partageant les mêmes modèles ONNX via `onnxruntime-web`
+- 🔜 **v0.3** — Vidéo, mode lot, ligne de commande
 
 ### Licence
 
