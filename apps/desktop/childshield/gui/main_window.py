@@ -1,4 +1,4 @@
-"""Main window: header + image canvas + faces panel + controls."""
+"""Main window: header (logo + live counter) + canvas + faces panel + actions."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import cv2
 from PyQt6.QtCore import QSize, Qt, QUrl
-from PyQt6.QtGui import QDesktopServices, QIcon, QPixmap
+from PyQt6.QtGui import QDesktopServices, QIcon, QPainter, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import (
@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
-    QSlider,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -25,12 +24,19 @@ from childshield.analysis import Face, FaceAnalyzer
 from childshield.blur import blur_faces
 from childshield.gui.canvas import ImageCanvas
 from childshield.gui.faces_panel import FacesPanel
+from childshield.gui.icons import icon
 
 SUPPORTED_EXT = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 
-# By default we blur anyone potentially under 18 — buckets whose lower
-# bound is ≤ 17 (so 0-2, 3-9, 10-19 all get auto-flagged).
-DEFAULT_AGE_THRESHOLD = 17
+# Hard policy: anyone whose estimated age range *might* include someone
+# under 18 is flagged for blur (buckets 0-2, 3-9 and 10-19 because the
+# upper end of 10-19 is 19, but the lower end is 10).
+AGE_THRESHOLD = 17
+
+PRIMARY_ICON_COLOR = "#ffffff"
+SECONDARY_ICON_COLOR = "#2563eb"
+BLUR_RED = "#dc2626"
+KEEP_GREEN = "#16a34a"
 
 
 def _logo_path() -> Path:
@@ -38,12 +44,8 @@ def _logo_path() -> Path:
 
 
 def _logo_pixmap(size: int) -> QPixmap:
-    """Render the SVG logo into a QPixmap of the requested edge size."""
-    from PyQt6.QtCore import QSize as _QSize
-    from PyQt6.QtGui import QPainter
-
     renderer = QSvgRenderer(str(_logo_path()))
-    pix = QPixmap(_QSize(size, size))
+    pix = QPixmap(QSize(size, size))
     pix.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pix)
     renderer.render(painter)
@@ -56,7 +58,9 @@ class MainWindow(QWidget):
         super().__init__()
         self.setWindowTitle("ChildShield")
         self.setWindowIcon(QIcon(_logo_pixmap(256)))
-        self.setMinimumSize(960, 720)
+        # Compact-friendly minimum — the layout reflows down to here.
+        self.setMinimumSize(720, 520)
+        self.resize(960, 720)
 
         self._analyzer = FaceAnalyzer()
         self._current_path: Path | None = None
@@ -76,24 +80,35 @@ class MainWindow(QWidget):
     def _build_header(self) -> QWidget:
         header = QWidget()
         header.setObjectName("header")
-        h_layout = QHBoxLayout(header)
-        h_layout.setContentsMargins(20, 14, 20, 14)
-        h_layout.setSpacing(12)
+        h = QHBoxLayout(header)
+        h.setContentsMargins(20, 12, 20, 12)
+        h.setSpacing(12)
 
         logo = QSvgWidget(str(_logo_path()))
-        logo.setFixedSize(QSize(36, 36))
-        h_layout.addWidget(logo)
+        logo.setFixedSize(QSize(34, 34))
+        h.addWidget(logo)
 
         title_col = QVBoxLayout()
         title_col.setSpacing(0)
         title = QLabel("ChildShield")
         title.setObjectName("appTitle")
-        subtitle = QLabel("Blur faces before sharing")
+        subtitle = QLabel("Auto-blur for anyone potentially under 18")
         subtitle.setObjectName("appSubtitle")
         title_col.addWidget(title)
         title_col.addWidget(subtitle)
-        h_layout.addLayout(title_col)
-        h_layout.addStretch()
+        h.addLayout(title_col)
+        h.addStretch()
+
+        # Live counter on the right side of the header
+        self._blur_badge = QLabel("0 will be blurred")
+        self._blur_badge.setObjectName("blurBadge")
+        self._keep_badge = QLabel("0 will stay clear")
+        self._keep_badge.setObjectName("keepBadge")
+        # Start hidden until an image is loaded
+        self._blur_badge.hide()
+        self._keep_badge.hide()
+        h.addWidget(self._blur_badge)
+        h.addWidget(self._keep_badge)
 
         return header
 
@@ -114,79 +129,48 @@ class MainWindow(QWidget):
 
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 0)
-        splitter.setSizes([700, 280])
+        splitter.setSizes([700, 260])
         return splitter
 
     def _build_controls(self) -> QWidget:
         wrapper = QWidget()
         wrapper.setObjectName("controls")
         col = QVBoxLayout(wrapper)
-        col.setContentsMargins(20, 12, 20, 16)
-        col.setSpacing(10)
+        col.setContentsMargins(16, 12, 16, 14)
+        col.setSpacing(8)
 
-        # Threshold row
-        slider_row = QHBoxLayout()
-        slider_row.setSpacing(10)
-        label = QLabel("Auto-blur if age range may include")
-        label.setObjectName("controlLabel")
-        slider_row.addWidget(label)
-
-        self._threshold = QSlider(Qt.Orientation.Horizontal)
-        self._threshold.setMinimum(0)
-        self._threshold.setMaximum(30)
-        self._threshold.setValue(DEFAULT_AGE_THRESHOLD)
-        self._threshold.valueChanged.connect(self._on_threshold_changed)
-        slider_row.addWidget(self._threshold, stretch=1)
-
-        self._threshold_label = QLabel(f"≤ {DEFAULT_AGE_THRESHOLD}y")
-        self._threshold_label.setObjectName("thresholdValue")
-        self._threshold_label.setMinimumWidth(50)
-        slider_row.addWidget(self._threshold_label)
-        col.addLayout(slider_row)
-
-        # Bulk + action row
         action_row = QHBoxLayout()
-        action_row.setSpacing(8)
+        action_row.setSpacing(6)
 
-        self._blur_all_btn = QPushButton("Blur all")
-        self._blur_all_btn.setObjectName("secondary")
+        self._blur_all_btn = self._make_secondary_btn("Blur all", "blur_all")
         self._blur_all_btn.clicked.connect(lambda: self._canvas.set_all(True))
         action_row.addWidget(self._blur_all_btn)
 
-        self._keep_all_btn = QPushButton("Blur none")
-        self._keep_all_btn.setObjectName("secondary")
+        self._keep_all_btn = self._make_secondary_btn("Blur none", "blur_none")
         self._keep_all_btn.clicked.connect(lambda: self._canvas.set_all(False))
         action_row.addWidget(self._keep_all_btn)
 
-        self._reapply_btn = QPushButton("Re-apply auto")
-        self._reapply_btn.setObjectName("secondary")
+        self._reapply_btn = self._make_secondary_btn("Re-apply auto", "refresh")
         self._reapply_btn.clicked.connect(self._apply_auto_selection)
         action_row.addWidget(self._reapply_btn)
 
         action_row.addStretch()
 
-        self._open_btn = QPushButton("Open image…")
+        self._open_btn = self._make_primary_btn("Open image", "folder")
         self._open_btn.clicked.connect(self._open_dialog)
         action_row.addWidget(self._open_btn)
 
-        self._save_btn = QPushButton("Save blurred copy")
+        self._save_btn = self._make_primary_btn("Save blurred copy", "save")
         self._save_btn.setEnabled(False)
         self._save_btn.clicked.connect(self._save)
         action_row.addWidget(self._save_btn)
 
-        self._reveal_btn = QPushButton("Show saved")
-        self._reveal_btn.setObjectName("secondary")
+        self._reveal_btn = self._make_secondary_btn("Show saved", "show")
         self._reveal_btn.setEnabled(False)
         self._reveal_btn.clicked.connect(self._reveal_output)
         action_row.addWidget(self._reveal_btn)
 
         col.addLayout(action_row)
-
-        # Status footer
-        self._counter = QLabel("")
-        self._counter.setObjectName("counter")
-        self._counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        col.addWidget(self._counter)
 
         self._status = QLabel("Ready.")
         self._status.setObjectName("status")
@@ -194,6 +178,23 @@ class MainWindow(QWidget):
         col.addWidget(self._status)
 
         return wrapper
+
+    # ------------------------------------------------- button helpers
+
+    def _make_primary_btn(self, label: str, icon_name: str) -> QPushButton:
+        btn = QPushButton(label)
+        btn.setIcon(icon(icon_name, color=PRIMARY_ICON_COLOR, size=18))
+        btn.setIconSize(QSize(16, 16))
+        btn.setToolTip(label)
+        return btn
+
+    def _make_secondary_btn(self, label: str, icon_name: str) -> QPushButton:
+        btn = QPushButton(label)
+        btn.setObjectName("secondary")
+        btn.setIcon(icon(icon_name, color=SECONDARY_ICON_COLOR, size=18))
+        btn.setIconSize(QSize(16, 16))
+        btn.setToolTip(label)
+        return btn
 
     # --------------------------------------------------------- slots
 
@@ -213,24 +214,25 @@ class MainWindow(QWidget):
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._last_output.parent)))
 
-    def _on_threshold_changed(self, value: int) -> None:
-        self._threshold_label.setText(f"≤ {value}y")
-
     def _on_canvas_changed(self) -> None:
         total = self._canvas.get_face_count()
         to_blur = self._canvas.get_blur_count()
         keep = total - to_blur
         if total == 0:
-            self._counter.setText("")
+            self._blur_badge.hide()
+            self._keep_badge.hide()
         else:
-            self._counter.setText(
-                f"🔴 {to_blur} blurred   •   🟢 {keep} clear   •   {total} total"
+            self._blur_badge.setText(
+                f"●  {to_blur} {'face' if to_blur == 1 else 'faces'} will be blurred"
             )
-        # Sync the side panel to the canvas state
+            self._keep_badge.setText(
+                f"●  {keep} {'face' if keep == 1 else 'faces'} will stay clear"
+            )
+            self._blur_badge.show()
+            self._keep_badge.show()
         self._faces_panel.set_blur_flags(self._canvas.get_blur_flags())
 
     def _on_panel_toggle(self, face_idx: int) -> None:
-        """A click on a row in the side panel toggles that face."""
         self._canvas.toggle_face(face_idx)
 
     # ------------------------------------------------------ processing
@@ -253,8 +255,7 @@ class MainWindow(QWidget):
         self._current_faces = faces
         self._save_btn.setEnabled(True)
 
-        threshold = self._threshold.value()
-        flags = [f.age_min <= threshold for f in faces]
+        flags = [f.age_min <= AGE_THRESHOLD for f in faces]
         self._canvas.set_image(image, faces, flags)
         self._faces_panel.populate(image, faces, flags)
 
@@ -262,15 +263,14 @@ class MainWindow(QWidget):
             self._status.setText(f"No faces detected in {path.name}.")
         else:
             self._status.setText(
-                f"{len(faces)} face(s) detected. "
+                f"{len(faces)} face(s) detected in {path.name}. "
                 "Click any face on the image — or any row on the right — to toggle blur."
             )
 
     def _apply_auto_selection(self) -> None:
         if not self._current_faces:
             return
-        threshold = self._threshold.value()
-        flags = [f.age_min <= threshold for f in self._current_faces]
+        flags = [f.age_min <= AGE_THRESHOLD for f in self._current_faces]
         self._canvas.set_image(
             self._canvas.get_source(), self._current_faces, flags
         )

@@ -93,7 +93,7 @@ class FacesPanel(QWidget):
     def __init__(self, on_toggle: Callable[[int], None]) -> None:
         super().__init__()
         self.setObjectName("facesPanel")
-        self.setMinimumWidth(260)
+        self.setMinimumWidth(220)
         self.setMaximumWidth(320)
 
         self._on_toggle = on_toggle
