@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "childshield"
+version = "0.1.0"
+description = "Privacy-first face blurring to protect children's faces before sharing photos"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "DYCON-dev" }]
+requires-python = ">=3.9"
+keywords = ["privacy", "face-blur", "children", "opencv", "yunet"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+]
+dependencies = [
+    "opencv-python>=4.8.0",
+    "PyQt6>=6.6.0",
+    "numpy>=1.24.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/DYCON-dev/childshield"
+Issues = "https://github.com/DYCON-dev/childshield/issues"
+
+[project.scripts]
+childshield = "childshield.__main__:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["childshield*"]
+
+[tool.setuptools.package-data]
+childshield = ["models/*.onnx", "gui/*.qss"]
